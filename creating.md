@@ -400,3 +400,8 @@ sqlite_permissions:
     - mode: '775'
 ~~~
 
+List of references: 
+- Django Documentation https://docs.djangoproject.com/en/5.1/
+- Salt Documentation https://docs.saltproject.io/en/latest/contents.html
+- Karvinen 2022: Django 4 Instant Customer Database Tutorial https://terokarvinen.com/2022/django-instant-crm-tutorial/
+- Karvinen 2024: Palvelinten hallinta https://terokarvinen.com/palvelinten-hallinta/#h5-loppuhuipennus
