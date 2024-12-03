@@ -312,3 +312,91 @@ Final test for it with empty machine with three runs:
 ![image](https://github.com/user-attachments/assets/ace2f932-a1ec-413c-850f-eec083923c2f)
 
 So idempotent as it should be. Next over to the slave. The files etc. have been created BUT the sqlite cant connect again. It worked earlier when I just created it with the user developer. Now it wont work. Also I cant edit the files as a user. So the permissions are issue again. 
+
+After going through my notes I see I didn't test it well earlier. I got it to work locally on my own vm but I did not test it with master-minion. 
+
+![image](https://github.com/user-attachments/assets/1bd27b08-5965-48cf-8c65-a5a1277ea6e5)
+
+As you can see it works to a point but Django files are created with only root writing permissions. I can't understand why, maybe it has something to do with the virtualenv. I found a file.directory module and tried to use it. Commands ran succesfully but I doubt this. 
+
+Testing shows that permissions are fine except manage.py was not executable so I added another module for it. I also added a module to make the database file before running migrations. I am guessing the issue is that I can change to user developer since I don't provide a password Debian will still ask for it... 
+
+I added a hashed password for the user so I can switch to it but nope.. The terminal goes crazy like this:
+
+![image](https://github.com/user-attachments/assets/b79138ff-884f-4f08-808f-a16f732534f3)
+
+Now I declared the shell for /bin/bash. And su works fine. Also ./manage.py migrate works fine. So this might work.. The salt script is now bloated very badly with useless code or that is my guess. No time to fix it. Embrace the Chaos. I also now see that I cant test it since I am running it with one ssh connection. I have no setup to check the Django servers web page. Well it is what it is. Also in the end I have to say this report is bad. I did not report some(quite a few) things I tried and failed with the syntax. It took me about 6 hours to fix this after I saw that it did not work. Well now I have learned the lesson(s). Start small. Trust your gut feeling.  This is the end result:
+
+~~~
+developer:
+  user.present:
+    - home: /home/developer
+    - password: "$6$86UilMBPope8TkhS$1ez8VvpYdau1mRY3tJn5hdDFFVTnUHI6pC1Ozvn6ThiEp458WK/FLTSu5KAXqRcy358SEp9prSSGGuHOprYDI1"
+    - shell: /bin/bash
+	
+dependencies_install:
+  pkg.installed:
+    - pkgs:
+      - python3
+      - virtualenv
+      - python3-pip
+
+create_directory:
+  file.directory:
+    - name: /home/developer/project
+    - user: developer
+    - group: developer
+    - makedirs: True
+
+create_venv_for_django:
+  cmd.run:
+    - name: virtualenv -p python3 --system-site-packages /home/developer/project/env
+    - creates: /home/developer/project/env/bin/activate
+    - user: developer
+
+django_install:
+  cmd.run:
+    - name: /home/developer/project/env/bin/pip install django
+    - creates: /home/developer/project/env/bin/django-admin
+    - user: developer
+
+django_project:
+  cmd.run:
+    - name: /home/developer/project/env/bin/django-admin startproject myproject /home/developer/project/
+    - creates: /home/developer/project/manage.py
+    - user: developer
+
+fix_it_please:
+  file.directory:
+    - name: /home/developer/project
+    - recurse:
+        - user
+        - group
+        - mode
+    - user: developer
+    - group: developer
+    - file_mode: '644'
+    - dir_mode: '755'
+
+managepy:
+  file.managed:
+    - name: /home/developer/project/manage.py
+    - user: developer
+    - group: developer
+    - mode: '755'
+create_db:
+  file.managed:
+    - name: /home/developer/project/db.sqlite3
+    - user: developer
+    - group: developer
+    - mode: '664'
+    - makedirs: True
+
+sqlite_permissions:
+  file.directory:
+    - name: /home/developer/project
+    - user: developer
+    - group: developer
+    - mode: '775'
+~~~
+
