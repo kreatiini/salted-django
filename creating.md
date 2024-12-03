@@ -299,6 +299,16 @@ django_project:
  #   - source: salt://djangres/settings.py
 #    - user: developer
 
-
-
 ~~~
+
+## End product
+
+So all in all I am disappointed. The only working thing here was the pure Django install with nothing else. Just a boring cmd.run script basicly.
+Final test for it with empty machine with three runs:
+![image](https://github.com/user-attachments/assets/b95ff786-a4c2-4ece-835e-397002a40552)
+
+![image](https://github.com/user-attachments/assets/6ca8811f-5ec1-4b8f-b53a-f022f348d293)
+
+![image](https://github.com/user-attachments/assets/ace2f932-a1ec-413c-850f-eec083923c2f)
+
+So idempotent as it should be. Next over to the slave. The files etc. have been created BUT the sqlite cant connect again. It worked earlier when I just created it with the user developer. Now it wont work. Also I cant edit the files as a user. So the permissions are issue again. 
