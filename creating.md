@@ -183,4 +183,122 @@ First run succeeded and changed 6. I ran it twice and this is the third one:
 
 ![image](https://github.com/user-attachments/assets/d7698fa7-d5bd-4a72-8bdd-8768b92b169c)
 
-So now we have a basic install for Django that is idempotent. Now I will figure out how I can set it up with apache. Basic idea is clear, install apache and modwsgi, create myproject.conf file that points to myproject and restart apache. Then we should be rocking. 
+So now we have a basic install for Django that is idempotent.
+
+## Django-Apache module
+After creating and saving the first module I will now make edits for postgresql database. Few days ago I did a manual setup on my own pc so I have a pretty clear idea how this works. Salt has some kind of commands for postgresql so I want to use them as much as I can. What I know I need:
+- Postgresql
+- Postgresql-server
+- Psycopg
+- Edit Django settings.py file with the Postgresql info
+- Create Postgresql user and database
+### First version (local)
+I checked to see what is the syntax of database setup in Django so I can replace that part. First I was thinking about creating a new settings.py but Salt has an option to put your text in to specific place. The syntax for the command was hard one to create. After setting the initial version up I started to think that I might need to implement some kind of watch. So Django will  make migrations after changes. After adding the things previously I had a few errors:
+
+![image](https://github.com/user-attachments/assets/0c859574-7200-45f4-8501-cfb9e3d5fef8)
+
+I had some spelling mistakes on my .pkgs so it did not install postgresql or its dependencies correctly. After running it again:
+
+![image](https://github.com/user-attachments/assets/0928d43e-32ac-4189-abcc-3ec8ce3f4302)
+
+And it was pretty fast I think. Now I will delete the vagrant machines and run it again 3 times. After running it 3 times I will log to minion machine and check if it works. 
+
+### Second version(minion)
+Now I ran it with maseter to minion. First run succeeded. Two more times with no changes:
+
+![image](https://github.com/user-attachments/assets/683638e8-8493-4732-b00c-7d29f176a2b3)
+
+
+![image](https://github.com/user-attachments/assets/546cc9ae-c0af-4f66-b76d-ae7de8087c14)
+
+![image](https://github.com/user-attachments/assets/1486d714-9f91-43d6-8e32-12b66fe154ed)
+
+So it is idempotent. Now I will try it out on minion.
+
+Postgresql daemon is running:
+
+![image](https://github.com/user-attachments/assets/d222a0a0-2446-495d-be1d-174eb174ad36)
+
+Settings.py is not correctly configured:
+
+![image](https://github.com/user-attachments/assets/68fa0d34-8359-42d2-b19c-61573144e447)
+
+Migrating gives the same error as on the pure Django install in the beginning. It worked fine earlier. Before checking this I will fix the settings.py issue:
+
+![image](https://github.com/user-attachments/assets/00436587-435b-4871-a05f-109b9dcb393e)
+
+### Third version
+
+After messing with the config a bit I got it to write over the settings.py. Now it shows the changes on Salt. I also need to add the psycopg to the virtualenv and also found a module for pip in Salt. So I changed the Django install for pip. When I ran it I had some issues:
+
+![image](https://github.com/user-attachments/assets/1c2a907c-3f5d-46ac-8c38-25405b1bbff7)
+
+I did not find any mentions of the `-r` flag in salt documentation for `pip.installed`. I have to do some more searching. I read the documentation again and there is a `requirements: ` key. I used that and it worked. Now all commands ran succesfully. But it seems to change the settings.py every time somehow. I did some research but the pattern matching was too hard for me so I decided to just replace the settings.py file with salt. 
+I did not get to test it since I can't use pip.installed correctly. It has something to do with privileges. It wont install anything if the user is defined as developer. If I don't define it user can't edit anything. 
+
+After all editing this is my current init.sls. I did not even try to implement the settings.py thing since the installation of Django with pip.installed did not work. 
+
+~~~
+developer:
+  user.present:
+    - home: /home/developer
+
+dependencies_install:
+  pkg.installed:
+    - pkgs:
+      - python3
+      - virtualenv
+      - python3-pip
+      - postgresql
+      - postgresql-client
+      - libpq-dev
+
+create_directory:
+  file.directory:
+    - name: /home/developer/project
+    - user: developer
+    - makedirs: True
+
+create_venv_for_django:
+  cmd.run:
+    - name: virtualenv -p python3 --system-site-packages /home/developer/project/env
+    - creates: /home/developer/project/env/bin/activate
+    - user: developer
+
+requirements:
+  file.managed:
+    - name: /home/developer/project/requirements.txt
+    - contents: |
+        Django
+        psycopg2
+    - user: developer
+
+requirements_install:
+  pip.installed:
+    - requirements: /home/developer/project/requirements.txt
+    - bin_env: /home/developer/project/env/bin/pip
+    - user: developer
+
+postgresql_settings:
+  postgres_user.present:
+    - name: dev
+    - password: "secret"
+  postgres_database.present:
+    - name: my_db
+    - owner: dev
+
+django_project:
+  cmd.run:
+    - name: /home/developer/project/env/bin/django-admin startproject myproject /home/developer/project/
+    - creates: /home/developer/project/manage.py
+    - user: developer
+
+#add_postgresql_to_django:
+#  file.managed:
+  #  - name: /home/developer/project/myproject/settings.py
+ #   - source: salt://djangres/settings.py
+#    - user: developer
+
+
+
+~~~
