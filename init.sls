@@ -3,7 +3,7 @@ developer:
     - home: /home/developer
     - password: "$6$86UilMBPope8TkhS$1ez8VvpYdau1mRY3tJn5hdDFFVTnUHI6pC1Ozvn6ThiEp458WK/FLTSu5KAXqRcy358SEp9prSSGGuHOprYDI1"  # Hash your own password and put it here
     - shell: /bin/bash
-	
+
 dependencies_install:
   pkg.installed:
     - pkgs:
@@ -39,32 +39,17 @@ django_project:
 fix_it_please:
   file.directory:
     - name: /home/developer/project
-    - recurse:
-        - user
-        - group
-        - mode
+    - dir_mode: '0775' # READ ALL, Write OWNER GROUP, Execute ALL
     - user: developer
-    - group: developer
-    - file_mode: '644'
-    - dir_mode: '755'
 
 managepy:
   file.managed:
     - name: /home/developer/project/manage.py
+    - mode: '0755' # READ ALL, Write Owner, EXECUTE ALL
     - user: developer
-    - group: developer
-    - mode: '755'
+
 create_db:
   file.managed:
     - name: /home/developer/project/db.sqlite3
+    - mode: '0664' # READ all, Write: Owner Group, Execute: no
     - user: developer
-    - group: developer
-    - mode: '664'
-    - makedirs: True
-
-sqlite_permissions:
-  file.directory:
-    - name: /home/developer/project
-    - user: developer
-    - group: developer
-    - mode: '775'
